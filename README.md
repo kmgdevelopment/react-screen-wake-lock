@@ -56,10 +56,11 @@ npm i react-screen-wake-lock
 import { useWakeLock } from 'react-screen-wake-lock';
 
 function Component() {
-  const { isSupported, released, request, release } = useWakeLock({
+  const { isSupported, released, request, release, destroy } = useWakeLock({
     onRequest: () => alert('Screen Wake Lock: requested!'),
     onError: () => alert('An error happened 💥'),
     onRelease: () => alert('Screen Wake Lock: released!'),
+    onDestroy: () => alert('Screen Wake Lock: destroyed!'),
   });
 
   return (
@@ -69,10 +70,7 @@ function Component() {
         <br />
         Released: <b>{`${released}`}</b>
       </p>
-      <button
-        type="button"
-        onClick={() => (released === false ? release() : request())}
-      >
+      <button type="button" onClick={() => (released === false ? destroy() : request())}>
         {released === false ? 'Release' : 'Request'}
       </button>
     </div>
@@ -89,15 +87,17 @@ export default Component;
 | `onRequest` |      called on successfully `navigator.wakeLock.request`      | `undefined` |  false   |
 |  `onError`  | called when caught an error from `navigator.wakeLock.request` | `undefined` |  false   |
 | `onRelease` |               called when wake lock is released               | `undefined` |  false   |
+| `onDestroy` |              called when wake lock is destroyed               | `undefined` |  false   |
 
 ### Returns
 
-|     Prop      |                                      description                                      |   type   |           |
-| :-----------: | :-----------------------------------------------------------------------------------: | :------: | --------- |
-| `isSupported` |                     Browser support for the Screen Wake Lock API                      | boolean  |
-|  `released`   | Once WakeLock is released, `released` become `true` and the value never changes again | boolean  | undefined |
-|   `request`   |        Returns a promise which allows control over screen dimming and locking         | function |
-|   `release`   |  Returns a promise that is resolved once the sentinel has been successfully released  | function |
+|     Prop      |                                                                                           description                                                                                            |   type   |           |
+| :-----------: | :----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------: | :------: | --------- |
+| `isSupported` |                                                                           Browser support for the Screen Wake Lock API                                                                           | boolean  |
+|  `released`   |                                                      Once WakeLock is released, `released` become `true` and the value never changes again                                                       | boolean  | undefined |
+|   `request`   | Returns a promise which allows control over screen dimming and locking and creates a `visibilitychange` event listener to re-aquire the WakeLock if the page loses focus and is then re-acquired | function |
+|   `release`   |                                 Returns a promise that is resolved once the sentinel has been successfully released; the sentinel is released but remains active                                 | function |
+|   `destroy`   |                                                Returns a promise that is resolved once the sentinel has been successfully released and nullified                                                 | function |
 
 ## Testing
 

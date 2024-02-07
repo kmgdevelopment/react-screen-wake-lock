@@ -7,12 +7,14 @@ export interface WakeLockOptions {
   onError?: (error: Error) => void;
   onRequest?: () => void;
   onRelease?: EventListener;
+  onDestroy?: () => void;
 }
 
 export const useWakeLock = ({
   onError,
   onRequest,
   onRelease,
+  onDestroy,
 }: WakeLockOptions | undefined = {}) => {
   const [released, setReleased] = React.useState<boolean | undefined>();
   const wakeLock = React.useRef<WakeLockSentinel | null>(null);
@@ -29,9 +31,7 @@ export const useWakeLock = ({
         );
       }
       if (isWakeLockAlreadyDefined) {
-        return warn(
-          'Calling `request` multiple times without `release` has no effect'
-        );
+        destroy();
       }
 
       try {
@@ -41,8 +41,9 @@ export const useWakeLock = ({
           // Default to `true` - `released` API is experimental: https://caniuse.com/mdn-api_wakelocksentinel_released
           setReleased((wakeLock.current && wakeLock.current.released) || true);
           onRelease && onRelease(e);
-          wakeLock.current = null;
         };
+
+        document.addEventListener('visibilitychange', handleVisibilityReturn);
 
         onRequest && onRequest();
         setReleased((wakeLock.current && wakeLock.current.released) || false);
@@ -52,6 +53,16 @@ export const useWakeLock = ({
     },
     [isSupported, onRequest, onError, onRelease]
   );
+
+  const handleVisibilityReturn = () => {
+    if( 
+        document.visibilityState == 'visible'
+        && wakeLock.current 
+        && wakeLock.current.released
+    ) {
+        request();
+    }
+  };
 
   const release = React.useCallback(async () => {
     const isWakeLockUndefined = wakeLock.current == null;
@@ -68,11 +79,32 @@ export const useWakeLock = ({
     wakeLock.current && (await wakeLock.current.release());
   }, [isSupported]);
 
+  const destroy = React.useCallback(async () => {
+    const isWakeLockUndefined = wakeLock.current == null;
+
+    if (!isSupported) {
+      return warn(
+        "Calling the `destroy` function has no effect, Wake Lock Screen API isn't supported"
+      );
+    }
+
+    if (isWakeLockUndefined) {
+      return warn('Calling `destroy` before `request` has no effect.');
+    }
+
+    wakeLock.current && (await wakeLock.current.release().then(() => {
+      document.removeEventListener('visibilitychange', handleVisibilityReturn);
+      wakeLock.current = null;
+      onDestroy && onDestroy();
+    }));
+  }, [isSupported, onDestroy])
+
   return {
     isSupported,
     request,
     released,
     release,
+    destroy,
     type: (wakeLock.current && wakeLock.current.type) || undefined,
   };
 };
